@@ -30,13 +30,13 @@ jobs:
       run:
         working-directory: kiro-usage-logging
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: kiro-usage-logging/package-lock.json
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.USAGE_LOGGING_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}

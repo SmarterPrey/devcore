@@ -28,8 +28,8 @@ jobs:
       STAGE: ${{ github.ref_name == 'dev' && 'dev' || 'prod' }}
       STACK_PREFIX: ${{ github.ref_name == 'dev' && 'dev-' || '' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.CONTENT_SYNC_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}

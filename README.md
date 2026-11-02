@@ -10,6 +10,7 @@ Monorepo for infrastructure stacks that deploy AI and developer services on AWS,
 | [AgentsSkills](AgentsSkills) | Agents (`agents/`, including the devops-content MCP server) and skills (`skills/`) | `AgentsSkillsDevs` |
 | [quick-enterprise-configuration](quick-enterprise-configuration) | Customer-managed Quick service role limited to the Quick registry | `AgentRegistryDevs` |
 | [kiro-enterprise-configuration](kiro-enterprise-configuration) | Kiro MCP allow-list and the CDN that serves it | `AgentRegistryDevs` |
+| [kiro-usage-logging](kiro-usage-logging) | Destination S3 bucket and bucket policy for Kiro prompt logs and per-user activity reports | `AgentRegistryDevs` |
 | [github-oidc-setup](github-oidc-setup) | GitHub OIDC provider and the workflow deploy roles (run once by an admin) | `AgentRegistryDevs` |
 | [DevOps-Team-Content](DevOps-Team-Content) | Obsidian vault (Markdown notes) served by the devops-content MCP server | `DevOpsDevs` |
 
@@ -51,6 +52,7 @@ Each part deploys on its own through GitHub Actions (`.github/workflows`), trigg
 | `deploy-agents.yml` | each changed `AgentsSkills/agents/*` CDK app | `AGENTS_DEPLOY_ROLE_ARN` |
 | `deploy-quick-enterprise-config.yml` | `quick-enterprise-configuration` | `QUICK_CONFIG_DEPLOY_ROLE_ARN` |
 | `publish-kiro-enterprise-config.yml` | `kiro-enterprise-configuration`, then uploads `mcp-registry.json` | `KIRO_CONFIG_DEPLOY_ROLE_ARN` |
+| `deploy-kiro-usage-logging.yml` | `kiro-usage-logging` | `USAGE_LOGGING_DEPLOY_ROLE_ARN` |
 | `sync-devops-content.yml` | `DevOps-Team-Content/**` Markdown to the devops-content S3 bucket | `CONTENT_SYNC_ROLE_ARN` |
 
 ### Dev stage
@@ -92,9 +94,20 @@ Kiro and Quick enforce access differently, so there are two mechanisms:
 
 Neither blocks calls to other registries at the network level. An SCP denying `agent-registry:*` on other registries would, if the account is in AWS Organizations.
 
+### Usage logging
+
+`kiro-usage-logging` provisions the destination for Kiro's two enterprise usage-logging features and the bucket policy that lets Kiro write to it, nothing more. The bucket blocks public access, enforces TLS, is versioned, and expires objects after `retentionDays` (default 365; set `-c retentionDays=0` to keep forever). Its policy grants the `q.amazonaws.com` service principal `s3:PutObject`, scoped by `aws:SourceAccount` (this account) and an `aws:SourceArn` on the `codewhisperer` service ARN, so only this account's Kiro/Q Developer backend can write. Policy shape follows the [Amazon Q Developer prompt-logging docs](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/q-admin-prompt-logging.html).
+
+Two features, both delivering into this one bucket:
+
+- **Prompt logging** — user prompts and Kiro's responses from the IDE and CLI, under the `PromptLogPrefix` output (`prompt-logs`, `dev-prompt-logs` in dev). Sensitive: full prompts and code land in the bucket.
+- **Per-user activity reports** — daily aggregate CSV telemetry, delivered to the `UserReportPath` output (`AWSLogs/<accountId>/KiroLogs/user_report/<region>/`).
+
+Enabling either is a manual console step with no API (same as the allow-list): in the Kiro console under enterprise monitoring, turn the feature on and point it at the `LogBucketName` output (and `PromptLogPrefix` for prompt logging). Prompt logging can only be enabled from a standalone or management account; it is not supported for member accounts in an AWS Organization. If you enable SSE-KMS on the bucket, add the companion `kms:GenerateDataKey` grant for `q.amazonaws.com` documented in the same AWS page.
+
 ### AWS access for the workflows (GitHub OIDC)
 
-The workflows sign in with short-lived GitHub OIDC tokens, so no AWS keys are stored in GitHub. `github-oidc-setup` creates the GitHub OIDC provider and 12 roles (6 workflows x `production`/`dev`). Each role trusts only `repo:SmarterPrey@135157929/devcore@1429268110:environment:<name>` (this repo's immutable OIDC subject; check yours with `gh api repos/SmarterPrey/devcore/actions/oidc/customization/sub` and override with `-c subjectPrefix=...`), so a dev run can't assume a production role. The roles deploy through the CDK bootstrap roles (`cdk-hnb659fds-*`), so they hold almost no permissions themselves; the content-sync and Kiro-config roles add scoped S3 access.
+The workflows sign in with short-lived GitHub OIDC tokens, so no AWS keys are stored in GitHub. `github-oidc-setup` creates the GitHub OIDC provider and 14 roles (7 workflows x `production`/`dev`). Each role trusts only `repo:SmarterPrey@135157929/devcore@1429268110:environment:<name>` (this repo's immutable OIDC subject; check yours with `gh api repos/SmarterPrey/devcore/actions/oidc/customization/sub` and override with `-c subjectPrefix=...`), so a dev run can't assume a production role. The roles deploy through the CDK bootstrap roles (`cdk-hnb659fds-*`), so they hold almost no permissions themselves; the content-sync and Kiro-config roles add scoped S3 access.
 
 Run once, with an administrator session in the target account, in a Region where CDK is bootstrapped (us-east-1 here):
 
@@ -112,7 +125,7 @@ for env in production dev; do
   p=""; [ $env = dev ] && p="dev-"
   gh api -X PUT repos/SmarterPrey/devcore/environments/$env
   gh variable set AWS_REGION --env $env --body us-east-1
-  for pair in REGISTRIES:registries SKILLS:skills AGENTS:agents QUICK_CONFIG:quick-config KIRO_CONFIG:kiro-config; do
+  for pair in REGISTRIES:registries SKILLS:skills AGENTS:agents QUICK_CONFIG:quick-config KIRO_CONFIG:kiro-config USAGE_LOGGING:usage-logging; do
     gh variable set ${pair%%:*}_DEPLOY_ROLE_ARN --env $env --body "arn:aws:iam::${A}:role/github-${p}${pair##*:}"
   done
   gh variable set CONTENT_SYNC_ROLE_ARN --env $env --body "arn:aws:iam::${A}:role/github-${p}content-sync"
@@ -125,7 +138,7 @@ Protect the `production` environment (Settings > Environments): limit deployment
 
 ### Setup
 
-Create two GitHub environments, `production` and `dev`, and set `AWS_REGION` and the six role variables in each (see above). The workflow picks the environment from the branch, so the variable names are the same in both. First-time order: registries, then the devops-content agent, then the content sync, then registries again (to add the devops-content record) and skills. The skills publisher imports the registry ARNs, and the registries read the agent's endpoint from its stack output.
+Create two GitHub environments, `production` and `dev`, and set `AWS_REGION` and the seven role variables in each (see above). The workflow picks the environment from the branch, so the variable names are the same in both. First-time order: registries, then the devops-content agent, then the content sync, then registries again (to add the devops-content record) and skills. The skills publisher imports the registry ARNs, and the registries read the agent's endpoint from its stack output.
 
 ## Working in this repo
 

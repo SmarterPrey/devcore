@@ -39,6 +39,9 @@ const WORKFLOWS: { id: string; variable: string; cdk: boolean; extra?: (prefix: 
       new iam.PolicyStatement({ actions: ['cloudfront:CreateInvalidation'], resources: ['*'] }),
     ],
   },
+  // Deploys the Kiro usage-logging bucket and bucket policy purely through CDK (bootstrap roles),
+  // so it needs no resource permissions of its own.
+  { id: 'usage-logging', variable: 'USAGE_LOGGING_DEPLOY_ROLE_ARN', cdk: true },
   {
     id: 'content-sync',
     variable: 'CONTENT_SYNC_ROLE_ARN',

@@ -1,0 +1,45 @@
+name: Deploy Kiro usage logging
+
+# Deploys the destination bucket and bucket policy that receive Kiro's enterprise usage logs (prompt
+# logs and per-user activity reports). Enabling either feature in the Kiro console stays a manual step
+# (point it at the stack's LogBucketName / PromptLogPrefix outputs).
+# Pushes to main deploy prod; pushes to dev deploy the dev stage (dev- prefixed names) in the same account.
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - kiro-usage-logging/**
+      - .github/workflows/deploy-kiro-usage-logging.yml
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-kiro-usage-logging-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'dev' && 'dev' || 'production' }}
+    env:
+      STAGE: ${{ github.ref_name == 'dev' && 'dev' || 'prod' }}
+    defaults:
+      run:
+        working-directory: kiro-usage-logging
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kiro-usage-logging/package-lock.json
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.USAGE_LOGGING_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - run: npm ci
+      - run: npm run check
+      - run: npm run deploy -- -c stage=$STAGE

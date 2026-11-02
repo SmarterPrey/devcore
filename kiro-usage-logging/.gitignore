@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# CDK
+cdk.out/
+dist/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# macOS
+.DS_Store

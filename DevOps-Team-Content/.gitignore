@@ -1,1 +1,4 @@
 .DS_Store
+
+# Auto-generated Copilot model catalog cache (regenerated on fetch, not source)
+.copilot/model-catalog-cache.json

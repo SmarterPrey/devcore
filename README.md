@@ -101,9 +101,9 @@ Neither blocks calls to other registries at the network level. An SCP denying `a
 Two features, both delivering into this one bucket:
 
 - **Prompt logging** — user prompts and Kiro's responses from the IDE and CLI, under the `PromptLogPrefix` output (`prompt-logs`, `dev-prompt-logs` in dev). Sensitive: full prompts and code land in the bucket.
-- **Per-user activity reports** — daily aggregate CSV telemetry, delivered to the `UserReportPath` output (`AWSLogs/<accountId>/KiroLogs/user_report/<region>/`).
+- **Per-user activity reports** — daily aggregate CSV telemetry, delivered to the `UserReportPath` output (`<PromptLogPrefix>/AWSLogs/<accountId>/KiroLogs/user_report/<region>/`).
 
-Enabling either is a manual console step with no API (same as the allow-list): in the Kiro console under enterprise monitoring, turn the feature on and point it at the `LogBucketName` output (and `PromptLogPrefix` for prompt logging). Prompt logging can only be enabled from a standalone or management account; it is not supported for member accounts in an AWS Organization. If you enable SSE-KMS on the bucket, add the companion `kms:GenerateDataKey` grant for `q.amazonaws.com` documented in the same AWS page.
+Enabling either is a manual console step with no API (same as the allow-list): in the Kiro console under enterprise monitoring, turn the feature on, point it at the `LogBucketName` output, and use the `PromptLogPrefix` output as the destination prefix for both features. Prompt logging can only be enabled from a standalone or management account; it is not supported for member accounts in an AWS Organization. If you enable SSE-KMS on the bucket, add the companion `kms:GenerateDataKey` grant for `q.amazonaws.com` documented in the same AWS page.
 
 ### AWS access for the workflows (GitHub OIDC)
 

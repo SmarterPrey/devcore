@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /AgentRegistries
+      - /AgentsSkills/agents/devops-content-mcp
+      - /AgentsSkills/skills-publisher
+      - /github-oidc-setup
+      - /kiro-enterprise-configuration
+      - /kiro-usage-logging
+      - /quick-enterprise-configuration
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    # aws-cdk-lib bundles minimatch@10.2.6 and requires ^10.2.6, so no compatible fix is available.
+    ignore:
+      - dependency-name: minimatch
+        versions:
+          - "< 11.0.1"

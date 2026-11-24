@@ -6,6 +6,7 @@ Agents and skills published through the registries in AgentRegistries.
 |---|---|
 | `agents/` | One directory per agent. Any directory with a `cdk.json` is its own CDK app and deploys on its own |
 | `agents/devops-content-mcp` | MCP server over the DevOps team content, hosted on AgentCore Runtime, reading notes from S3 |
+| `agents/github-mcp-server` | GitHub's official MCP server in HTTP mode on AgentCore Runtime ([details](agents/github-mcp-server/README.md)) |
 | `skills/` | One directory per skill (`SKILL.md`) |
 | `skills-publisher/` | CDK app that publishes each skill as a `SKILL` record in both registries |
 
